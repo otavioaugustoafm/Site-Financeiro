@@ -2,11 +2,11 @@ from pydantic import BaseModel
 from datetime import date
 from enum import Enum
 
-class MetodoPagamento(str, enum.Enum):
+class MetodoPagamento(str, Enum):
     CREDITO = "Crédito"
     DEBITO = "Débito"
 
-class Categoria(str, enum.Enum):
+class Categoria(str, Enum):
     INVESTIMENTO = "Investimento"
     ALIMENTACAO = "Alimentação"
     GASTOS_FIXOS = "Gastos Fixos"

@@ -1,5 +1,15 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 import models
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./ExpensesTable.db"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def adicionar_gasto(db: Session, gasto_dados):
 

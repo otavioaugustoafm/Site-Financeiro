@@ -14,9 +14,10 @@ def get_db():
         db.close()
 
 @app.get("/")
-def home:
+def home():
     return {"Começando um novo projeto..."}
 
 @app.post("/gastos/", response_model=schemas.GastoResponse)
 def criar_novo_gasto(gasto: schemas.GastoCreate, db: Session = Depends(get_db)):
     return database.adicionar_gasto(db=db, gasto_dados=gasto)
+
