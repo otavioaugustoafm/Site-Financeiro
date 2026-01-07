@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 import models, schemas, database 
+from typing import List
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -13,11 +14,29 @@ def get_db():
     finally:
         db.close()
 
-@app.get("/")
-def home():
-    return {"Começando um novo projeto..."}
-
-@app.post("/gastos/", response_model=schemas.GastoResponse)
+@app.post("/gastos", response_model=schemas.GastoResponse)
 def criar_novo_gasto(gasto: schemas.GastoCreate, db: Session = Depends(get_db)):
     return database.adicionar_gasto(db=db, gasto_dados=gasto)
 
+@app.get("/gastos", response_model=List[schemas.GastoResponse])
+def ler_todos_gastos(db: Session = Depends(get_db)):
+    gastos = database.ler_todos_gastos(db) 
+    return gastos
+
+@app.patch("/gastos/{gasto_id}")
+def atualizar_gasto_id(gasto_id: int, gasto_update: schemas.GastoUpdate, db: Session = Depends(get_db)):
+    gasto_atualizado = database.atualizar_gasto_id(db, gasto_id, gasto_update)
+
+    if gasto_atualizado is None:
+        raise HTTPException(status_code404, detail="Gasto não encontrado para atualizar.")
+
+    return {"Gasto atualizado com sucesso"}
+
+@app.delete("/gastos/{gasto_id}")
+def deletar_gasto_id(gasto_id = int, db: Session = Depends(get_db)):
+    sucesso = database.deletar_gasto_id(db, gasto_id)
+    
+    if not sucesso:
+        raise HTTPException(status_code=404, detail="Gasto não encontrado para deletar.")
+
+    return {"Gasto removido com sucesso."}
