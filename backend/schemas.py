@@ -14,7 +14,21 @@ class Categoria(str, Enum):
     GASTOS_EXTRAS = "Gastos Extras"
     TRANSPORTE = "Transporte"
     COMPRAS = "Compras"
-    OUTROS = "Outro3s"
+    OUTROS = "Outros"
+
+class Mes(int, Enum):
+    JANEIRO = 1
+    FEVEREIRO = 2
+    MARCO = 3
+    ABRIL = 4
+    MAIO = 5
+    JUNHO = 6
+    JULHO = 7
+    AGOSTO = 8
+    SETEMBRO = 9
+    OUTUBRO = 10
+    NOVEMBRO = 11
+    DEZEMBRO = 12
 
 class GastoBase(BaseModel):
     valor: float
@@ -29,6 +43,24 @@ class GastoUpdate(BaseModel):
     data: Optional[date] = None
     metodo_pagamento: Optional[MetodoPagamento] = None
     categoria: Optional[Categoria] = None
+
+class GastoFiltro(BaseModel):    
+    valor_fixo: Optional[float] = None
+    valor_inicio: Optional[float] = None
+    valor_fim: Optional[float] = None
+
+    descricao: Optional[str] = None
+
+    mes: Optional[Mes] = None
+    ano: Optional[int] = date.today().year
+    data_fixa: Optional[date] = None
+    data_inicio: Optional[date] = None
+    data_fim: Optional[date] = None
+    
+    metodo_pagamento: Optional[MetodoPagamento] = None
+    categoria: Optional[Categoria] = None
+    
+
 
 class GastoCreate(GastoBase):
     pass
