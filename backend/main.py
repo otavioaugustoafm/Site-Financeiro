@@ -32,20 +32,19 @@ def atualizar_gasto_id(gasto_id: int, gasto_update: schemas.GastoUpdate, db: Ses
     if gasto_atualizado is None:
         raise HTTPException(status_code=404, detail="Gasto não encontrado para atualizar.")
 
-    return {"Gasto atualizado com sucesso"}
+    return {"mensagem": "Gasto atualizado com sucesso"}
 
 @app.delete("/gastos/{gasto_id}")
-def deletar_gasto_id(gasto_id = int, db: Session = Depends(get_db)):
+def deletar_gasto_id(gasto_id: int, db: Session = Depends(get_db)):
     sucesso = database.deletar_gasto_id(db, gasto_id)
     
     if not sucesso:
         raise HTTPException(status_code=404, detail="Gasto não encontrado para deletar.")
 
-    return {"Gasto removido com sucesso."}
+    return {"mensagem": "Gasto removido com sucesso."}
 
 # FUNÇÕES ESPECÍFICAS
 
 @app.get("/filtro", response_model=List[schemas.GastoResponse])
 def ler_gastos_filtrados(db: Session = Depends(get_db), filtro: schemas.GastoFiltro = Depends()):
     return database.ler_gastos_filtrados(db, filtro)
-    
