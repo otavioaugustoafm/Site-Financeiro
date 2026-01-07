@@ -85,13 +85,13 @@ def ler_gastos_filtrados(db: Session, filtro: schemas.GastoFiltro):
             ano_fim = filtro.ano
         data_fim_fatura = date(ano_fim, mes_fim, 3)    
         query = query.filter(models.Gasto.data.between(data_inicio_fatura, data_fim_fatura))
-    elif:
+    elif filtro.data_fixa:
+        query = query.filter(models.Gasto.data == filtro.data_fixa)
+    else:
         if filtro.data_inicio:
             query = query.filter(models.Gasto.data >= filtro.data_inicio)
         if filtro.data_fim:
             query = query.filter(models.Gasto.data <= filtro.data_fim)
-    else filtro.data_fixa:
-        query = query.filter(models.Gasto.data == filtro.data_fixa)
 
     if filtro.metodo_pagamento:
         query = query.filter(models.Gasto.metodo_pagamento == filtro.metodo_pagamento)
