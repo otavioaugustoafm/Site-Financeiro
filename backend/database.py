@@ -146,6 +146,10 @@ def obter_dashboard(db: Session, filtro: schemas.GastoFiltro):
     
     total_mes = query.with_entities(func.sum(models.Gasto.valor)).scalar() or 0.0
 
+    total_fatura = query.filter(
+        models.Gasto.metodo_pagamento == models.MetodoPagamento.CREDITO
+    ).with_entities(func.sum(models.Gasto.valor)).scalar() or 0.0
+
     resultados_categoria = query.with_entities(
         models.Gasto.categoria,
         func.sum(models.Gasto.valor)
@@ -155,5 +159,6 @@ def obter_dashboard(db: Session, filtro: schemas.GastoFiltro):
 
     return schemas.DashboardResponse(
         total_gastos=total_mes,
+        total_fatura=total_fatura,
         total_categoria=dict_categorias
     )

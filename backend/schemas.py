@@ -62,6 +62,7 @@ class GastoFiltro(BaseModel):
     
 class DashboardResponse(BaseModel):
     total_gastos: float
+    total_fatura: float
     total_categoria: dict[str, float]
 
 class GastoCreate(GastoBase):
