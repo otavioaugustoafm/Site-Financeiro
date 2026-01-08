@@ -52,7 +52,7 @@ class GastoFiltro(BaseModel):
     descricao: Optional[str] = None
 
     mes: Optional[Mes] = None
-    ano: Optional[int] = date.today().year
+    ano: Optional[int] = None
     data_fixa: Optional[date] = None
     data_inicio: Optional[date] = None
     data_fim: Optional[date] = None
@@ -60,9 +60,12 @@ class GastoFiltro(BaseModel):
     metodo_pagamento: Optional[MetodoPagamento] = None
     categoria: Optional[Categoria] = None
     
-
+class DashboardResponse(BaseModel):
+    total_gastos: float
+    total_categoria: dict[str, float]
 
 class GastoCreate(GastoBase):
+    parcelas: int = 1
     pass
 
 class GastoResponse(GastoBase):

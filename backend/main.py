@@ -21,9 +21,8 @@ def criar_novo_gasto(gasto: schemas.GastoCreate, db: Session = Depends(get_db)):
     return database.adicionar_gasto(db=db, gasto_dados=gasto)
 
 @app.get("/gastos", response_model=List[schemas.GastoResponse])
-def ler_todos_gastos(db: Session = Depends(get_db)):
-    gastos = database.ler_todos_gastos(db) 
-    return gastos
+def ler_gastos_filtrados(db: Session = Depends(get_db), filtro: schemas.GastoFiltro = Depends()):
+    return database.ler_gastos_filtrados(db, filtro)
 
 @app.patch("/gastos/{gasto_id}")
 def atualizar_gasto_id(gasto_id: int, gasto_update: schemas.GastoUpdate, db: Session = Depends(get_db)):
@@ -45,6 +44,6 @@ def deletar_gasto_id(gasto_id: int, db: Session = Depends(get_db)):
 
 # FUNÇÕES ESPECÍFICAS
 
-@app.get("/filtro", response_model=List[schemas.GastoResponse])
-def ler_gastos_filtrados(db: Session = Depends(get_db), filtro: schemas.GastoFiltro = Depends()):
-    return database.ler_gastos_filtrados(db, filtro)
+@app.get("/dashboard", response_model=schemas.DashboardResponse)
+def ler_dashboard(db: Session = Depends(get_db), filtro: schemas.GastoFiltro = Depends()):
+    return database.obter_dashboard(db, filtro)
