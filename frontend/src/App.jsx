@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import axios from 'axios'
 import { Toaster, toast } from 'sonner' 
 import { 
@@ -8,17 +8,25 @@ import {
   Legend, 
   CategoryScale, 
   LinearScale, 
-  BarElement 
+  BarElement,
+  PointElement,    // Necessário para gráfico de linha
+  LineElement,     // Necessário para gráfico de linha
+  Title            // Necessário para títulos
 } from 'chart.js';
-import { Pie, Bar } from 'react-chartjs-2';
+import { Doughnut, Bar, Line } from 'react-chartjs-2';
 import { 
   Wallet, AlertCircle, Filter, Search, Plus, X, Pencil, Trash2, 
-  Banknote, ArrowRightLeft, SlidersHorizontal, Calendar 
+  Banknote, SlidersHorizontal, Calendar, 
+  PieChart, BarChart3, TrendingUp 
 } from 'lucide-react';
 
+// Registrando todos os componentes necessários do Chart.js
 ChartJS.defaults.color = '#a1a1aa'; 
-ChartJS.defaults.borderColor = '#3f3f46';
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
+ChartJS.defaults.borderColor = '#27272a';
+ChartJS.register(
+  ArcElement, Tooltip, Legend, CategoryScale, LinearScale, 
+  BarElement, PointElement, LineElement, Title
+);
 
 // --- CONFIGURAÇÃO DE DEPLOY ---
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
@@ -30,14 +38,17 @@ function App() {
   const [listaGastos, setListaGastos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
-  // MUDANÇA 1: Começa como true para iniciar com gráfico de barras
-  const [graficoTipoBarra, setGraficoTipoBarra] = useState(true);
+  
+  // Estado para controlar qual gráfico está visível: 'doughnut', 'bar' ou 'line'
+  // Começamos com 'bar' como você pediu
+  const [tipoGrafico, setTipoGrafico] = useState('bar'); 
+  
   const [idEdicao, setIdEdicao] = useState(null); 
 
   // --- CONTROLE DE UI ---
   const [mostrarFiltrosAvancados, setMostrarFiltrosAvancados] = useState(false);
 
-  // --- ESTADOS DO FORMULÁRIO (NOVO GASTO) ---
+  // --- ESTADOS DO FORMULÁRIO ---
   const [novoGasto, setNovoGasto] = useState({
     valor: '',
     descricao: '',
@@ -47,12 +58,10 @@ function App() {
     parcelas: 1
   });
 
-  // --- ESTADOS DOS FILTROS BÁSICOS ---
+  // --- ESTADOS DOS FILTROS ---
   const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1); 
   const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
   const [filtroCategoria, setFiltroCategoria] = useState("");
-
-  // --- ESTADOS DOS FILTROS AVANÇADOS ---
   const [filtroDescricao, setFiltroDescricao] = useState("");
   const [filtroMetodo, setFiltroMetodo] = useState("");
   const [filtroValorMin, setFiltroValorMin] = useState("");
@@ -72,12 +81,11 @@ function App() {
     "Gastos Extras", "Transporte", "Compras", "Outros"
   ];
 
-  // --- FUNÇÕES ---
+  // --- FUNÇÕES DE BUSCA ---
   async function buscarDados() {
     setCarregando(true);
     try {
       const usarDatasPersonalizadas = filtroDataInicio || filtroDataFim;
-
       const paramsCompletos = {
         mes: usarDatasPersonalizadas ? null : filtroMes,
         ano: usarDatasPersonalizadas ? null : filtroAno,
@@ -106,13 +114,95 @@ function App() {
     }
   }
 
+  // --- PROCESSAMENTO DE DADOS PARA GRÁFICOS (useMemo otimiza a performance) ---
+  
+  // 1. Dados para Barra e Rosca (Categorias)
+  const dadosCategorias = useMemo(() => {
+    const categorias = Object.keys(dashboardData?.total_categoria || {});
+    const valores = Object.values(dashboardData?.total_categoria || {});
+    return {
+      labels: categorias,
+      datasets: [{
+        label: 'Gastos R$',
+        data: valores,
+        backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'],
+        borderColor: '#18181b', // Borda da cor do fundo para separar fatias
+        borderWidth: 2,
+        borderRadius: 4,
+        hoverOffset: 10
+      }],
+    };
+  }, [dashboardData]);
+
+  // 2. Dados para Linha (Evolução Diária)
+  const dadosLinha = useMemo(() => {
+    // Agrupar gastos por dia
+    const gastosPorDia = listaGastos.reduce((acc, gasto) => {
+      const dia = gasto.data.split('-')[2]; // Pega o dia "01", "15", etc.
+      acc[dia] = (acc[dia] || 0) + gasto.valor;
+      return acc;
+    }, {});
+
+    // Ordenar dias (1, 2, 3...)
+    const diasOrdenados = Object.keys(gastosPorDia).sort();
+    const valoresPorDia = diasOrdenados.map(dia => gastosPorDia[dia]);
+
+    return {
+      labels: diasOrdenados,
+      datasets: [{
+        label: 'Gasto Diário',
+        data: valoresPorDia,
+        borderColor: '#10b981', // Verde Emerald
+        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+        tension: 0.4, // Deixa a linha curva (suave)
+        pointBackgroundColor: '#10b981',
+        fill: true
+      }]
+    };
+  }, [listaGastos]);
+
+  // --- OPÇÕES DOS GRÁFICOS ---
+  const opcoesRosca = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '70%', // Deixa a rosca mais fina e elegante
+    plugins: {
+      legend: {
+        position: 'right', // Legenda na lateral
+        labels: {
+          color: '#fff',
+          font: { size: 12 },
+          padding: 20,
+          usePointStyle: true, // Bolinhas em vez de quadrados
+        }
+      }
+    }
+  };
+
+  const opcoesBarra = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: { grid: { color: '#27272a' } },
+      x: { grid: { display: false } }
+    },
+    plugins: { legend: { display: false } }
+  };
+
+  const opcoesLinha = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: { grid: { color: '#27272a' }, beginAtZero: true },
+      x: { grid: { display: false }, title: { display: true, text: 'Dia do Mês' } }
+    },
+    plugins: { legend: { display: false } }
+  };
+
+  // --- FUNÇÕES AUXILIARES ---
   function limparFiltrosAvancados() {
-    setFiltroDescricao("");
-    setFiltroMetodo("");
-    setFiltroValorMin("");
-    setFiltroValorMax("");
-    setFiltroDataInicio("");
-    setFiltroDataFim("");
+    setFiltroDescricao(""); setFiltroMetodo(""); setFiltroValorMin("");
+    setFiltroValorMax(""); setFiltroDataInicio(""); setFiltroDataFim("");
     buscarDados();
   }
 
@@ -122,49 +212,38 @@ function App() {
       if (idEdicao) {
         const { parcelas, ...dadosParaAtualizar } = novoGasto; 
         await axios.patch(`${API_URL}/gastos/${idEdicao}`, dadosParaAtualizar);
-        toast.success("Gasto atualizado com sucesso!");
+        toast.success("Gasto atualizado!");
       } else {
         await axios.post(`${API_URL}/gastos`, novoGasto);
-        toast.success("Gasto adicionado com sucesso!");
+        toast.success("Gasto adicionado!");
       }
       fecharModal();
       buscarDados(); 
     } catch (erro) {
-      console.error(erro);
-      toast.error("Erro ao salvar. Verifique os dados.");
+      toast.error("Erro ao salvar.");
     }
   }
 
   function excluirGasto(id) {
-    toast("Tem certeza que deseja excluir?", {
+    toast("Confirmar exclusão?", {
       action: {
-        label: 'Sim, Excluir',
+        label: 'Excluir',
         onClick: async () => {
           try {
             await axios.delete(`${API_URL}/gastos/${id}`);
             toast.success("Gasto removido!");
             buscarDados();
-          } catch (erro) {
-            toast.error("Erro ao excluir item.");
-          }
+          } catch (erro) { toast.error("Erro ao excluir."); }
         },
       },
       cancel: { label: 'Cancelar' },
-      duration: 5000,
       style: { background: '#18181b', color: '#fff', border: '1px solid #27272a' }
     });
   }
 
   function prepararEdicao(gasto) {
     setIdEdicao(gasto.id);
-    setNovoGasto({
-      valor: gasto.valor,
-      descricao: gasto.descricao,
-      data: gasto.data,
-      categoria: gasto.categoria,
-      metodo_pagamento: gasto.metodo_pagamento,
-      parcelas: 1
-    });
+    setNovoGasto({ ...gasto, parcelas: 1 });
     setModalAberto(true);
   }
 
@@ -172,78 +251,30 @@ function App() {
     setModalAberto(false);
     setIdEdicao(null);
     setNovoGasto({
-      valor: '',
-      descricao: '',
-      data: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
-      categoria: 'Outros',
-      metodo_pagamento: 'Crédito',
-      parcelas: 1
+      valor: '', descricao: '', data: new Date().toISOString().split('T')[0],
+      categoria: 'Outros', metodo_pagamento: 'Crédito', parcelas: 1
     });
   }
 
-  useEffect(() => {
-    buscarDados();
-  }, []);
-
-  const categoriasGrafico = Object.keys(dashboardData?.total_categoria || {});
-  const valoresGrafico = Object.values(dashboardData?.total_categoria || {});
-  
-  const dadosGrafico = {
-    labels: categoriasGrafico,
-    datasets: [{
-      label: 'Gastos R$',
-      data: valoresGrafico,
-      backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'],
-      borderRadius: 5,
-      borderWidth: 0, 
-    }],
-  };
-
-  const opcoesBarra = {
-    responsive: true,
-    scales: {
-      x: { ticks: { color: '#a1a1aa' }, grid: { color: '#27272a' } },
-      y: { ticks: { color: '#a1a1aa' }, grid: { color: '#27272a' } }
-    },
-    plugins: {
-      legend: { display: false },
-      title: { display: false }
-    }
-  };
-
-  const opcoesPizza = {
-    plugins: { 
-      legend: { 
-        labels: { color: '#fff' } 
-      } 
-    } 
-  };
+  useEffect(() => { buscarDados(); }, []);
 
   const inputStyle = "w-full p-3 bg-zinc-800 border border-zinc-700 rounded-lg outline-none focus:border-emerald-500 text-white transition-colors placeholder-zinc-500";
   const labelStyle = "block text-sm font-medium text-zinc-400 mb-1";
 
   return (
     <div className="min-h-screen p-8 font-sans text-zinc-100 bg-zinc-950 relative">
-      
       <Toaster position="top-right" theme="dark" richColors />
 
       {/* CABEÇALHO */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Meu Controle Financeiro</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Meu Controle Financeiro</h1>
           <div className="text-sm text-zinc-400 mt-1">
-            Exibindo dados de: <strong className="text-emerald-400">
-              {(filtroDataInicio || filtroDataFim) ? 'Período Personalizado' : `${filtroMes}/${filtroAno}`}
-            </strong>
+            Visualizando: <strong className="text-emerald-400">{(filtroDataInicio || filtroDataFim) ? 'Período Personalizado' : `${filtroMes}/${filtroAno}`}</strong>
           </div>
         </div>
-
-        <button 
-          onClick={() => { setIdEdicao(null); setModalAberto(true); }}
-          className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 px-6 py-3 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-transform hover:scale-105"
-        >
-          <Plus size={20} />
-          Novo Gasto
+        <button onClick={() => { setIdEdicao(null); setModalAberto(true); }} className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 px-6 py-3 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-transform hover:scale-105">
+          <Plus size={20} /> Novo Gasto
         </button>
       </div>
 
@@ -251,174 +282,101 @@ function App() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <Wallet size={32} /> </div>
-          <div>
-            <p className="text-zinc-400 text-sm font-medium">Fatura (Cartão)</p>
-            <p className="text-2xl font-bold text-emerald-400">
-              {dashboardData?.total_fatura?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}
-            </p>
-          </div>
+          <div><p className="text-zinc-400 text-sm font-medium">Fatura</p><p className="text-2xl font-bold text-emerald-400">{dashboardData?.total_fatura?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}</p></div>
         </div>
-
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <Banknote size={32} /> </div>
-          <div>
-            <p className="text-zinc-400 text-sm font-medium">Total do Período</p>
-            <p className="text-2xl font-bold text-emerald-400">
-              {dashboardData?.total_gastos?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}
-            </p>
-          </div>
+          <div><p className="text-zinc-400 text-sm font-medium">Total</p><p className="text-2xl font-bold text-emerald-400">{dashboardData?.total_gastos?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}</p></div>
         </div>
-
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <AlertCircle size={32} /> </div>
-          <div>
-            <p className="text-zinc-400 text-sm font-medium">Gastos Extras</p>
-            <p className="text-2xl font-bold text-emerald-400">
-               {(dashboardData?.total_categoria['Gastos Extras'] || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </p>
-          </div>
+          <div><p className="text-zinc-400 text-sm font-medium">Extras</p><p className="text-2xl font-bold text-emerald-400">{(dashboardData?.total_categoria['Gastos Extras'] || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
         </div>
       </div>
 
-      {/* ÁREA DO GRÁFICO E FILTROS */}
+      {/* ÁREA PRINCIPAL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        {/* Gráfico */}
-        <div className="lg:col-span-2 bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-center w-full text-white">Distribuição dos Gastos</h2>
-            <button 
-              onClick={() => setGraficoTipoBarra(!graficoTipoBarra)}
-              className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 rounded-lg transition-colors"
-              title="Trocar tipo de gráfico"
-            >
-              <ArrowRightLeft size={20} />
-            </button>
+        
+        {/* ÁREA DO GRÁFICO */}
+        <div className="lg:col-span-2 bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-bold text-white">Análise Visual</h2>
+            
+            {/* Botões de Troca de Gráfico */}
+            <div className="flex bg-zinc-800 p-1 rounded-lg gap-1">
+              <button onClick={() => setTipoGrafico('bar')} className={`p-2 rounded transition-colors ${tipoGrafico === 'bar' ? 'bg-zinc-700 text-emerald-400' : 'text-zinc-400 hover:text-white'}`} title="Comparação (Barras)">
+                <BarChart3 size={18} />
+              </button>
+              <button onClick={() => setTipoGrafico('doughnut')} className={`p-2 rounded transition-colors ${tipoGrafico === 'doughnut' ? 'bg-zinc-700 text-emerald-400' : 'text-zinc-400 hover:text-white'}`} title="Categorias (Rosca)">
+                <PieChart size={18} />
+              </button>
+              <button onClick={() => setTipoGrafico('line')} className={`p-2 rounded transition-colors ${tipoGrafico === 'line' ? 'bg-zinc-700 text-emerald-400' : 'text-zinc-400 hover:text-white'}`} title="Evolução (Linha)">
+                <TrendingUp size={18} />
+              </button>
+            </div>
           </div>
-          <div className="h-64 flex justify-center w-full">
+
+          <div className="flex-1 min-h-[300px] w-full relative">
              {dashboardData ? (
-                graficoTipoBarra ? 
-                  <Bar key="grafico-barra" data={dadosGrafico} options={opcoesBarra} /> 
-                  : 
-                  <Pie key="grafico-pizza" data={dadosGrafico} options={opcoesPizza} />
+                <>
+                  {tipoGrafico === 'doughnut' && <Doughnut data={dadosCategorias} options={opcoesRosca} />}
+                  {tipoGrafico === 'bar' && <Bar data={dadosCategorias} options={opcoesBarra} />}
+                  {tipoGrafico === 'line' && <Line data={dadosLinha} options={opcoesLinha} />}
+                </>
              ) : (
-                <p className="text-zinc-500">Carregando...</p>
+                <div className="flex items-center justify-center h-full text-zinc-500">Carregando dados...</div>
              )}
           </div>
         </div>
 
-        {/* Filtros */}
-        {/* Removi o transition-all duration-300 do container pai para evitar animação na altura total */}
+        {/* ÁREA DE FILTROS */}
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 h-fit">
-          
-          {/* Cabeçalho dos Filtros */}
           <div className="flex items-center justify-between mb-6 border-b border-zinc-800 pb-4">
             <div className="flex items-center gap-2">
               <Filter className="text-emerald-500" size={20}/>
-              <h2 className="text-lg font-bold text-white">Filtrar Dados</h2>
+              <h2 className="text-lg font-bold text-white">Filtros</h2>
             </div>
-            <button 
-              onClick={() => setMostrarFiltrosAvancados(!mostrarFiltrosAvancados)}
-              className={`p-2 rounded-lg transition-colors ${mostrarFiltrosAvancados ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-              title="Filtros Avançados"
-            >
+            <button onClick={() => setMostrarFiltrosAvancados(!mostrarFiltrosAvancados)} className={`p-2 rounded-lg transition-colors ${mostrarFiltrosAvancados ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}>
               <SlidersHorizontal size={20} />
             </button>
           </div>
 
           <div className="space-y-4">
-            {/* Filtros Básicos */}
             <div className={filtroDataInicio || filtroDataFim ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
-              <div>
-                <label className={labelStyle}>Mês</label>
-                <select value={filtroMes} onChange={(e) => setFiltroMes(Number(e.target.value))} className={inputStyle}>
-                  {listaMeses.map(mes => <option key={mes.num} value={mes.num} className="bg-zinc-800">{mes.nome}</option>)}
-                </select>
-              </div>
-              <div className="mt-4">
-                <label className={labelStyle}>Ano</label>
-                <input type="number" value={filtroAno} onChange={(e) => setFiltroAno(Number(e.target.value))} className={inputStyle}/>
-              </div>
+              <div><label className={labelStyle}>Mês</label><select value={filtroMes} onChange={(e) => setFiltroMes(Number(e.target.value))} className={inputStyle}>{listaMeses.map(mes => <option key={mes.num} value={mes.num} className="bg-zinc-800">{mes.nome}</option>)}</select></div>
+              <div className="mt-4"><label className={labelStyle}>Ano</label><input type="number" value={filtroAno} onChange={(e) => setFiltroAno(Number(e.target.value))} className={inputStyle}/></div>
             </div>
+            <div><label className={labelStyle}>Categoria</label><select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className={inputStyle}><option value="" className="bg-zinc-800">Todas</option>{listaCategorias.map(cat => <option key={cat} value={cat} className="bg-zinc-800">{cat}</option>)}</select></div>
 
-            <div>
-              <label className={labelStyle}>Categoria</label>
-              <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className={inputStyle}>
-                <option value="" className="bg-zinc-800">Todas</option>
-                {listaCategorias.map(cat => <option key={cat} value={cat} className="bg-zinc-800">{cat}</option>)}
-              </select>
-            </div>
-
-            {/* ÁREA DE FILTROS AVANÇADOS (Com scroll interno para não empurrar a tela) */}
             {mostrarFiltrosAvancados && (
-              // MUDANÇA 2: Adicionadas classes de altura máxima e scroll
               <div className="pt-4 mt-4 border-t border-zinc-800 space-y-4 animate-in fade-in slide-in-from-top-4 max-h-[350px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-                <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider">Busca Avançada</p>
-                
-                <div>
-                  <label className={labelStyle}>Descrição (Contém)</label>
-                  <input 
-                    type="text" 
-                    value={filtroDescricao} 
-                    onChange={(e) => setFiltroDescricao(e.target.value)} 
-                    placeholder="Ex: Uber, Mercado..." 
-                    className={inputStyle}
-                  />
-                </div>
-
+                <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider">Avançado</p>
+                <input type="text" value={filtroDescricao} onChange={(e) => setFiltroDescricao(e.target.value)} placeholder="Descrição contém..." className={inputStyle} />
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className={labelStyle}>Valor Mín.</label>
-                    <input type="number" placeholder="0" value={filtroValorMin} onChange={(e) => setFiltroValorMin(e.target.value)} className={inputStyle} />
-                  </div>
-                  <div>
-                    <label className={labelStyle}>Valor Máx.</label>
-                    <input type="number" placeholder="Max" value={filtroValorMax} onChange={(e) => setFiltroValorMax(e.target.value)} className={inputStyle} />
-                  </div>
+                  <input type="number" placeholder="Min R$" value={filtroValorMin} onChange={(e) => setFiltroValorMin(e.target.value)} className={inputStyle} />
+                  <input type="number" placeholder="Max R$" value={filtroValorMax} onChange={(e) => setFiltroValorMax(e.target.value)} className={inputStyle} />
                 </div>
-
-                <div>
-                  <label className={labelStyle}>Método Pagamento</label>
-                  <select value={filtroMetodo} onChange={(e) => setFiltroMetodo(e.target.value)} className={inputStyle}>
-                    <option value="" className="bg-zinc-800">Todos</option>
-                    <option value="Crédito" className="bg-zinc-800">Crédito</option>
-                    <option value="Débito" className="bg-zinc-800">Débito</option>
-                  </select>
-                </div>
-
+                <select value={filtroMetodo} onChange={(e) => setFiltroMetodo(e.target.value)} className={inputStyle}><option value="">Todos Métodos</option><option value="Crédito">Crédito</option><option value="Débito">Débito</option></select>
                 <div className="bg-zinc-950/50 p-3 rounded-lg border border-zinc-800">
-                  <div className="flex items-center gap-2 mb-2 text-zinc-400">
-                    <Calendar size={14} />
-                    <span className="text-xs font-bold uppercase">Período Personalizado</span>
-                  </div>
+                  <div className="flex items-center gap-2 mb-2 text-zinc-400"><Calendar size={14} /><span className="text-xs font-bold uppercase">Período Exato</span></div>
                   <div className="space-y-2">
                      <input type="date" value={filtroDataInicio} onChange={(e) => setFiltroDataInicio(e.target.value)} className={`${inputStyle} text-sm py-2`} />
                      <input type="date" value={filtroDataFim} onChange={(e) => setFiltroDataFim(e.target.value)} className={`${inputStyle} text-sm py-2`} />
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-2 leading-tight">
-                    *Ao selecionar datas, o filtro de Mês/Ano acima será ignorado.
-                  </p>
                 </div>
-                
-                <button onClick={limparFiltrosAvancados} className="text-xs text-red-400 hover:text-red-300 underline w-full text-center">
-                  Limpar Filtros Avançados
-                </button>
+                <button onClick={limparFiltrosAvancados} className="text-xs text-red-400 hover:text-red-300 underline w-full text-center">Limpar Filtros</button>
               </div>
             )}
-
-            <button onClick={buscarDados} disabled={carregando} className="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg">
-              {carregando ? 'Buscando...' : <><Search size={18}/> Atualizar Busca</>}
-            </button>
+            <button onClick={buscarDados} disabled={carregando} className="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg">{carregando ? '...' : <><Search size={18}/> Filtrar</>}</button>
           </div>
         </div>
       </div>
 
-      {/* TABELA (Mantida igual) */}
+      {/* TABELA DE GASTOS */}
       <div className="bg-zinc-900 rounded-xl shadow-lg border border-zinc-800 overflow-hidden">
         <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-white">Detalhamento</h2>
-          <span className="text-sm text-zinc-500">
-            {listaGastos.length} registros encontrados
-          </span>
+          <h2 className="text-lg font-bold text-white">Extrato</h2>
+          <span className="text-sm text-zinc-500">{listaGastos.length} registros</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -432,12 +390,9 @@ function App() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
-              {listaGastos.length > 0 ? (
-                listaGastos.map((gasto) => (
+              {listaGastos.length > 0 ? (listaGastos.map((gasto) => (
                   <tr key={gasto.id} className="hover:bg-zinc-800/50 transition-colors group">
-                    <td className="p-4 text-sm text-zinc-300">
-                      {gasto.data.split('-').reverse().slice(0, 2).join('/')}
-                    </td>
+                    <td className="p-4 text-sm text-zinc-300">{gasto.data.split('-').reverse().slice(0, 2).join('/')}</td>
                     <td className="p-4 text-sm font-medium text-white">{gasto.descricao}</td>
                     <td className="p-4 text-sm text-zinc-300"><span className="px-2 py-1 bg-zinc-800 rounded text-xs border border-zinc-700">{gasto.categoria}</span></td>
                     <td className="p-4 text-sm font-bold text-emerald-400">{gasto.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
@@ -446,27 +401,20 @@ function App() {
                       <button onClick={() => excluirGasto(gasto.id)} className="p-2 text-red-400 hover:bg-zinc-800 rounded-full transition-colors"><Trash2 size={18} /></button>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="5" className="p-8 text-center text-zinc-500">
-                    Nenhum gasto encontrado com esses filtros.
-                  </td>
-                </tr>
-              )}
+                ))) : (<tr><td colSpan="5" className="p-8 text-center text-zinc-500">Nenhum gasto encontrado.</td></tr>)}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* MODAL (Mantido igual) */}
+      {/* MODAL DE CADASTRO/EDIÇÃO */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 backdrop-blur-sm">
           <div className="bg-zinc-900 p-8 rounded-2xl shadow-2xl w-full max-w-md relative animate-bounce-in border border-zinc-800">
             <button onClick={fecharModal} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={24} /></button>
-            <h2 className="text-2xl font-bold text-white mb-6">{idEdicao ? 'Editar Gasto' : 'Novo Gasto'}</h2>
+            <h2 className="text-2xl font-bold text-white mb-6">{idEdicao ? 'Editar' : 'Novo Gasto'}</h2>
             <form onSubmit={enviarGasto} className="space-y-4">
-              <div><label className={labelStyle}>Valor (R$)</label><input type="number" step="0.01" required value={novoGasto.valor} onChange={e => setNovoGasto({...novoGasto, valor: e.target.value})} className={inputStyle} placeholder="0.00" /></div>
+              <div><label className={labelStyle}>Valor</label><input type="number" step="0.01" required value={novoGasto.valor} onChange={e => setNovoGasto({...novoGasto, valor: e.target.value})} className={inputStyle} placeholder="0.00" /></div>
               <div><label className={labelStyle}>Descrição</label><input type="text" required value={novoGasto.descricao} onChange={e => setNovoGasto({...novoGasto, descricao: e.target.value})} className={inputStyle} placeholder="Ex: Almoço" /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className={labelStyle}>Data</label><input type="date" required value={novoGasto.data} onChange={e => setNovoGasto({...novoGasto, data: e.target.value})} className={inputStyle} /></div>
@@ -480,9 +428,7 @@ function App() {
                   <label className="flex items-center gap-2 cursor-pointer hover:text-white"><input type="radio" name="metodo" value="Débito" checked={novoGasto.metodo_pagamento === 'Débito'} onChange={e => setNovoGasto({...novoGasto, metodo_pagamento: e.target.value})} className="accent-emerald-500"/> Débito</label>
                 </div>
               </div>
-              <button type="submit" className={`w-full text-zinc-950 font-bold py-3 rounded-lg mt-4 transition-colors shadow-lg bg-emerald-500 hover:bg-emerald-600`}>
-                {idEdicao ? 'Atualizar Gasto' : 'Salvar Gasto'}
-              </button>
+              <button type="submit" className={`w-full text-zinc-950 font-bold py-3 rounded-lg mt-4 transition-colors shadow-lg bg-emerald-500 hover:bg-emerald-600`}>{idEdicao ? 'Salvar Alterações' : 'Adicionar Gasto'}</button>
             </form>
           </div>
         </div>
