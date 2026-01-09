@@ -17,6 +17,10 @@ ChartJS.defaults.color = '#a1a1aa';
 ChartJS.defaults.borderColor = '#3f3f46';
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
+// --- CONFIGURAÇÃO DE DEPLOY ---
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+// ------------------------------
+
 function App() {
   // --- ESTADOS GERAIS ---
   const [dashboardData, setDashboardData] = useState(null);
@@ -59,10 +63,12 @@ function App() {
       const paramsGerais = { mes: filtroMes, ano: filtroAno };
       const paramsTabela = { ...paramsGerais, categoria: filtroCategoria || null };
 
-      const respDash = await axios.get('http://127.0.0.1:8000/dashboard', { params: paramsGerais });
+      // CORREÇÃO 1: Usando API_URL aqui
+      const respDash = await axios.get(`${API_URL}/dashboard`, { params: paramsGerais });
       setDashboardData(respDash.data);
 
-      const respGastos = await axios.get('http://127.0.0.1:8000/gastos', { params: paramsTabela });
+      // CORREÇÃO 2: Usando API_URL aqui
+      const respGastos = await axios.get(`${API_URL}/gastos`, { params: paramsTabela });
       setListaGastos(respGastos.data);
       
     } catch (erro) {
@@ -78,10 +84,12 @@ function App() {
     try {
       if (idEdicao) {
         const { parcelas, ...dadosParaAtualizar } = novoGasto; 
-        await axios.patch(`http://127.0.0.1:8000/gastos/${idEdicao}`, dadosParaAtualizar);
+        // CORREÇÃO 3: Usando API_URL aqui
+        await axios.patch(`${API_URL}/gastos/${idEdicao}`, dadosParaAtualizar);
         toast.success("Gasto atualizado com sucesso!");
       } else {
-        await axios.post('http://127.0.0.1:8000/gastos', novoGasto);
+        // CORREÇÃO 4: Usando API_URL aqui
+        await axios.post(`${API_URL}/gastos`, novoGasto);
         toast.success("Gasto adicionado com sucesso!");
       }
       fecharModal();
@@ -98,7 +106,8 @@ function App() {
         label: 'Sim, Excluir',
         onClick: async () => {
           try {
-            await axios.delete(`http://127.0.0.1:8000/gastos/${id}`);
+            // CORREÇÃO 5: Usando API_URL aqui
+            await axios.delete(`${API_URL}/gastos/${id}`);
             toast.success("Gasto removido!");
             buscarDados();
           } catch (erro) {
@@ -176,8 +185,6 @@ function App() {
     } 
   };
 
-  // --- ESTILOS COMUNS (Atualizados para Emerald) ---
-  // Inputs agora com borda verde esmeralda no foco
   const inputStyle = "w-full p-3 bg-zinc-800 border border-zinc-700 rounded-lg outline-none focus:border-emerald-500 text-white transition-colors";
   const labelStyle = "block text-sm font-medium text-zinc-400 mb-1";
 
@@ -197,7 +204,6 @@ function App() {
 
         <button 
           onClick={() => { setIdEdicao(null); setModalAberto(true); }}
-          // Botão VERDE ESMERALDA
           className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 px-6 py-3 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-transform hover:scale-105"
         >
           <Plus size={20} />
@@ -250,7 +256,6 @@ function App() {
             <h2 className="text-lg font-bold text-center w-full text-white">Distribuição dos Gastos</h2>
             <button 
               onClick={() => setGraficoTipoBarra(!graficoTipoBarra)}
-              // Botão de troca com hover Esmeralda
               className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 rounded-lg transition-colors"
               title="Trocar tipo de gráfico"
             >
@@ -260,8 +265,6 @@ function App() {
 
           <div className="h-64 flex justify-center w-full">
              {dashboardData ? (
-                // Adicionei a prop 'key' para forçar o React a recriar o gráfico ao trocar de tipo
-                // Isso resolve o bug visual
                 graficoTipoBarra ? 
                   <Bar key="grafico-barra" data={dadosGrafico} options={opcoesBarra} /> 
                   : 
@@ -296,7 +299,6 @@ function App() {
                 {listaCategorias.map(cat => <option key={cat} value={cat} className="bg-zinc-800">{cat}</option>)}
               </select>
             </div>
-            {/* Botão Atualizar VERDE ESMERALDA */}
             <button onClick={buscarDados} disabled={carregando} className="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
               {carregando ? 'Buscando...' : <><Search size={18}/> Atualizar</>}
             </button>
@@ -328,7 +330,6 @@ function App() {
                   <td className="p-4 text-sm text-zinc-300"><span className="px-2 py-1 bg-zinc-800 rounded text-xs border border-zinc-700">{gasto.categoria}</span></td>
                   <td className="p-4 text-sm font-bold text-emerald-400">{gasto.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                   <td className="p-4 text-sm flex justify-center gap-2">
-                    {/* Botões de Ação com hover verde/vermelho */}
                     <button onClick={() => prepararEdicao(gasto)} className="p-2 text-emerald-500 hover:bg-zinc-800 rounded-full transition-colors"><Pencil size={18} /></button>
                     <button onClick={() => excluirGasto(gasto.id)} className="p-2 text-red-400 hover:bg-zinc-800 rounded-full transition-colors"><Trash2 size={18} /></button>
                   </td>
@@ -356,12 +357,10 @@ function App() {
               <div>
                 <label className={labelStyle}>Método</label>
                 <div className="flex gap-4 text-zinc-300">
-                  {/* Radio Button agora com acento Verde Esmeralda */}
                   <label className="flex items-center gap-2 cursor-pointer hover:text-white"><input type="radio" name="metodo" value="Crédito" checked={novoGasto.metodo_pagamento === 'Crédito'} onChange={e => setNovoGasto({...novoGasto, metodo_pagamento: e.target.value})} className="accent-emerald-500"/> Crédito</label>
                   <label className="flex items-center gap-2 cursor-pointer hover:text-white"><input type="radio" name="metodo" value="Débito" checked={novoGasto.metodo_pagamento === 'Débito'} onChange={e => setNovoGasto({...novoGasto, metodo_pagamento: e.target.value})} className="accent-emerald-500"/> Débito</label>
                 </div>
               </div>
-              {/* Botão de Salvar/Atualizar VERDE ESMERALDA */}
               <button type="submit" className={`w-full text-zinc-950 font-bold py-3 rounded-lg mt-4 transition-colors shadow-lg bg-emerald-500 hover:bg-emerald-600`}>
                 {idEdicao ? 'Atualizar Gasto' : 'Salvar Gasto'}
               </button>
