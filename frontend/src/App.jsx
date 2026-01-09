@@ -11,7 +11,10 @@ import {
   BarElement 
 } from 'chart.js';
 import { Pie, Bar } from 'react-chartjs-2';
-import { Wallet, AlertCircle, Filter, Search, Plus, X, Pencil, Trash2, Banknote, ArrowRightLeft } from 'lucide-react'; 
+import { 
+  Wallet, AlertCircle, Filter, Search, Plus, X, Pencil, Trash2, 
+  Banknote, ArrowRightLeft, SlidersHorizontal, Calendar 
+} from 'lucide-react'; // Adicionei SlidersHorizontal e Calendar
 
 ChartJS.defaults.color = '#a1a1aa'; 
 ChartJS.defaults.borderColor = '#3f3f46';
@@ -30,7 +33,10 @@ function App() {
   const [graficoTipoBarra, setGraficoTipoBarra] = useState(false);
   const [idEdicao, setIdEdicao] = useState(null); 
 
-  // --- ESTADOS DO FORMULÁRIO ---
+  // --- CONTROLE DE UI ---
+  const [mostrarFiltrosAvancados, setMostrarFiltrosAvancados] = useState(false);
+
+  // --- ESTADOS DO FORMULÁRIO (NOVO GASTO) ---
   const [novoGasto, setNovoGasto] = useState({
     valor: '',
     descricao: '',
@@ -40,10 +46,18 @@ function App() {
     parcelas: 1
   });
 
-  // --- ESTADOS DOS FILTROS ---
+  // --- ESTADOS DOS FILTROS BÁSICOS ---
   const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1); 
   const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
   const [filtroCategoria, setFiltroCategoria] = useState("");
+
+  // --- ESTADOS DOS FILTROS AVANÇADOS (NOVO) ---
+  const [filtroDescricao, setFiltroDescricao] = useState("");
+  const [filtroMetodo, setFiltroMetodo] = useState("");
+  const [filtroValorMin, setFiltroValorMin] = useState("");
+  const [filtroValorMax, setFiltroValorMax] = useState("");
+  const [filtroDataInicio, setFiltroDataInicio] = useState("");
+  const [filtroDataFim, setFiltroDataFim] = useState("");
 
   const listaMeses = [
     { num: 1, nome: 'Janeiro' }, { num: 2, nome: 'Fevereiro' }, { num: 3, nome: 'Março' },
@@ -59,16 +73,34 @@ function App() {
 
   // --- FUNÇÕES ---
   async function buscarDados() {
+    setCarregando(true);
     try {
-      const paramsGerais = { mes: filtroMes, ano: filtroAno };
-      const paramsTabela = { ...paramsGerais, categoria: filtroCategoria || null };
+      // Montamos o objeto com TODOS os filtros possíveis que seu Python aceita
+      // Se o usuário preencher datas personalizadas, enviamos mês/ano como null para o Python usar as datas exatas
+      const usarDatasPersonalizadas = filtroDataInicio || filtroDataFim;
 
-      // CORREÇÃO 1: Usando API_URL aqui
-      const respDash = await axios.get(`${API_URL}/dashboard`, { params: paramsGerais });
+      const paramsCompletos = {
+        // Básicos
+        mes: usarDatasPersonalizadas ? null : filtroMes,
+        ano: usarDatasPersonalizadas ? null : filtroAno,
+        categoria: filtroCategoria || null,
+        
+        // Avançados
+        descricao: filtroDescricao || null,
+        metodo_pagamento: filtroMetodo || null,
+        valor_inicio: filtroValorMin || null,
+        valor_fim: filtroValorMax || null,
+        data_inicio: filtroDataInicio || null,
+        data_fim: filtroDataFim || null
+      };
+
+      // Buscamos Dashboard e Tabela com os mesmos filtros para ficarem sincronizados
+      const [respDash, respGastos] = await Promise.all([
+        axios.get(`${API_URL}/dashboard`, { params: paramsCompletos }),
+        axios.get(`${API_URL}/gastos`, { params: paramsCompletos })
+      ]);
+
       setDashboardData(respDash.data);
-
-      // CORREÇÃO 2: Usando API_URL aqui
-      const respGastos = await axios.get(`${API_URL}/gastos`, { params: paramsTabela });
       setListaGastos(respGastos.data);
       
     } catch (erro) {
@@ -79,16 +111,25 @@ function App() {
     }
   }
 
+  // Função para limpar apenas os filtros avançados
+  function limparFiltrosAvancados() {
+    setFiltroDescricao("");
+    setFiltroMetodo("");
+    setFiltroValorMin("");
+    setFiltroValorMax("");
+    setFiltroDataInicio("");
+    setFiltroDataFim("");
+    buscarDados(); // Recarrega usando só o mês/ano padrão
+  }
+
   async function enviarGasto(e) {
     e.preventDefault();
     try {
       if (idEdicao) {
         const { parcelas, ...dadosParaAtualizar } = novoGasto; 
-        // CORREÇÃO 3: Usando API_URL aqui
         await axios.patch(`${API_URL}/gastos/${idEdicao}`, dadosParaAtualizar);
         toast.success("Gasto atualizado com sucesso!");
       } else {
-        // CORREÇÃO 4: Usando API_URL aqui
         await axios.post(`${API_URL}/gastos`, novoGasto);
         toast.success("Gasto adicionado com sucesso!");
       }
@@ -106,7 +147,6 @@ function App() {
         label: 'Sim, Excluir',
         onClick: async () => {
           try {
-            // CORREÇÃO 5: Usando API_URL aqui
             await axios.delete(`${API_URL}/gastos/${id}`);
             toast.success("Gasto removido!");
             buscarDados();
@@ -185,7 +225,7 @@ function App() {
     } 
   };
 
-  const inputStyle = "w-full p-3 bg-zinc-800 border border-zinc-700 rounded-lg outline-none focus:border-emerald-500 text-white transition-colors";
+  const inputStyle = "w-full p-3 bg-zinc-800 border border-zinc-700 rounded-lg outline-none focus:border-emerald-500 text-white transition-colors placeholder-zinc-500";
   const labelStyle = "block text-sm font-medium text-zinc-400 mb-1";
 
   return (
@@ -198,7 +238,9 @@ function App() {
         <div>
           <h1 className="text-3xl font-bold text-white">Meu Controle Financeiro</h1>
           <div className="text-sm text-zinc-400 mt-1">
-            Exibindo dados de: <strong className="text-emerald-400">{filtroMes}/{filtroAno}</strong>
+            Exibindo dados de: <strong className="text-emerald-400">
+              {(filtroDataInicio || filtroDataFim) ? 'Período Personalizado' : `${filtroMes}/${filtroAno}`}
+            </strong>
           </div>
         </div>
 
@@ -213,8 +255,6 @@ function App() {
 
       {/* CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        
-        {/* Card 1: Fatura */}
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <Wallet size={32} /> </div>
           <div>
@@ -225,18 +265,16 @@ function App() {
           </div>
         </div>
 
-        {/* Card 2: Total Mês */}
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <Banknote size={32} /> </div>
           <div>
-            <p className="text-zinc-400 text-sm font-medium">Total do Mês</p>
+            <p className="text-zinc-400 text-sm font-medium">Total do Período</p>
             <p className="text-2xl font-bold text-emerald-400">
               {dashboardData?.total_gastos?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}
             </p>
           </div>
         </div>
 
-        {/* Card 3: Gastos Extras */}
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <AlertCircle size={32} /> </div>
           <div>
@@ -262,7 +300,6 @@ function App() {
               <ArrowRightLeft size={20} />
             </button>
           </div>
-
           <div className="h-64 flex justify-center w-full">
              {dashboardData ? (
                 graficoTipoBarra ? 
@@ -276,22 +313,38 @@ function App() {
         </div>
 
         {/* Filtros */}
-        <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 h-fit">
-          <div className="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4">
-            <Filter className="text-emerald-500" size={20}/>
-            <h2 className="text-lg font-bold text-white">Filtrar Dados</h2>
+        <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 h-fit transition-all duration-300">
+          
+          {/* Cabeçalho dos Filtros + Botão de Avançados */}
+          <div className="flex items-center justify-between mb-6 border-b border-zinc-800 pb-4">
+            <div className="flex items-center gap-2">
+              <Filter className="text-emerald-500" size={20}/>
+              <h2 className="text-lg font-bold text-white">Filtrar Dados</h2>
+            </div>
+            <button 
+              onClick={() => setMostrarFiltrosAvancados(!mostrarFiltrosAvancados)}
+              className={`p-2 rounded-lg transition-colors ${mostrarFiltrosAvancados ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+              title="Filtros Avançados"
+            >
+              <SlidersHorizontal size={20} />
+            </button>
           </div>
+
           <div className="space-y-4">
-            <div>
-              <label className={labelStyle}>Mês</label>
-              <select value={filtroMes} onChange={(e) => setFiltroMes(Number(e.target.value))} className={inputStyle}>
-                {listaMeses.map(mes => <option key={mes.num} value={mes.num} className="bg-zinc-800">{mes.nome}</option>)}
-              </select>
+            {/* Filtros Básicos (Sempre visíveis, exceto se datas personalizadas estiverem ativas, eu desabilito eles visualmente) */}
+            <div className={filtroDataInicio || filtroDataFim ? 'opacity-50 pointer-events-none' : ''}>
+              <div>
+                <label className={labelStyle}>Mês</label>
+                <select value={filtroMes} onChange={(e) => setFiltroMes(Number(e.target.value))} className={inputStyle}>
+                  {listaMeses.map(mes => <option key={mes.num} value={mes.num} className="bg-zinc-800">{mes.nome}</option>)}
+                </select>
+              </div>
+              <div className="mt-4">
+                <label className={labelStyle}>Ano</label>
+                <input type="number" value={filtroAno} onChange={(e) => setFiltroAno(Number(e.target.value))} className={inputStyle}/>
+              </div>
             </div>
-            <div>
-              <label className={labelStyle}>Ano</label>
-              <input type="number" value={filtroAno} onChange={(e) => setFiltroAno(Number(e.target.value))} className={inputStyle}/>
-            </div>
+
             <div>
               <label className={labelStyle}>Categoria</label>
               <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className={inputStyle}>
@@ -299,8 +352,65 @@ function App() {
                 {listaCategorias.map(cat => <option key={cat} value={cat} className="bg-zinc-800">{cat}</option>)}
               </select>
             </div>
-            <button onClick={buscarDados} disabled={carregando} className="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
-              {carregando ? 'Buscando...' : <><Search size={18}/> Atualizar</>}
+
+            {/* ÁREA DE FILTROS AVANÇADOS (Expansível) */}
+            {mostrarFiltrosAvancados && (
+              <div className="pt-4 mt-4 border-t border-zinc-800 space-y-4 animate-in fade-in slide-in-from-top-4">
+                <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider">Busca Avançada</p>
+                
+                <div>
+                  <label className={labelStyle}>Descrição (Contém)</label>
+                  <input 
+                    type="text" 
+                    value={filtroDescricao} 
+                    onChange={(e) => setFiltroDescricao(e.target.value)} 
+                    placeholder="Ex: Uber, Mercado..." 
+                    className={inputStyle}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={labelStyle}>Valor Mín.</label>
+                    <input type="number" placeholder="0" value={filtroValorMin} onChange={(e) => setFiltroValorMin(e.target.value)} className={inputStyle} />
+                  </div>
+                  <div>
+                    <label className={labelStyle}>Valor Máx.</label>
+                    <input type="number" placeholder="Max" value={filtroValorMax} onChange={(e) => setFiltroValorMax(e.target.value)} className={inputStyle} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelStyle}>Método Pagamento</label>
+                  <select value={filtroMetodo} onChange={(e) => setFiltroMetodo(e.target.value)} className={inputStyle}>
+                    <option value="" className="bg-zinc-800">Todos</option>
+                    <option value="Crédito" className="bg-zinc-800">Crédito</option>
+                    <option value="Débito" className="bg-zinc-800">Débito</option>
+                  </select>
+                </div>
+
+                <div className="bg-zinc-950/50 p-3 rounded-lg border border-zinc-800">
+                  <div className="flex items-center gap-2 mb-2 text-zinc-400">
+                    <Calendar size={14} />
+                    <span className="text-xs font-bold uppercase">Período Personalizado</span>
+                  </div>
+                  <div className="space-y-2">
+                     <input type="date" value={filtroDataInicio} onChange={(e) => setFiltroDataInicio(e.target.value)} className={`${inputStyle} text-sm py-2`} />
+                     <input type="date" value={filtroDataFim} onChange={(e) => setFiltroDataFim(e.target.value)} className={`${inputStyle} text-sm py-2`} />
+                  </div>
+                  <p className="text-[10px] text-zinc-500 mt-2 leading-tight">
+                    *Ao selecionar datas, o filtro de Mês/Ano acima será ignorado.
+                  </p>
+                </div>
+                
+                <button onClick={limparFiltrosAvancados} className="text-xs text-red-400 hover:text-red-300 underline w-full text-center">
+                  Limpar Filtros Avançados
+                </button>
+              </div>
+            )}
+
+            <button onClick={buscarDados} disabled={carregando} className="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg">
+              {carregando ? 'Buscando...' : <><Search size={18}/> Atualizar Busca</>}
             </button>
           </div>
         </div>
@@ -308,7 +418,12 @@ function App() {
 
       {/* TABELA */}
       <div className="bg-zinc-900 rounded-xl shadow-lg border border-zinc-800 overflow-hidden">
-        <div className="p-6 border-b border-zinc-800"><h2 className="text-lg font-bold text-white">Detalhamento</h2></div>
+        <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+          <h2 className="text-lg font-bold text-white">Detalhamento</h2>
+          <span className="text-sm text-zinc-500">
+            {listaGastos.length} registros encontrados
+          </span>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-zinc-800/50">
@@ -321,26 +436,34 @@ function App() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
-              {listaGastos.map((gasto) => (
-                <tr key={gasto.id} className="hover:bg-zinc-800/50 transition-colors group">
-                  <td className="p-4 text-sm text-zinc-300">
-                    {gasto.data.split('-').reverse().slice(0, 2).join('/')}
-                  </td>
-                  <td className="p-4 text-sm font-medium text-white">{gasto.descricao}</td>
-                  <td className="p-4 text-sm text-zinc-300"><span className="px-2 py-1 bg-zinc-800 rounded text-xs border border-zinc-700">{gasto.categoria}</span></td>
-                  <td className="p-4 text-sm font-bold text-emerald-400">{gasto.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                  <td className="p-4 text-sm flex justify-center gap-2">
-                    <button onClick={() => prepararEdicao(gasto)} className="p-2 text-emerald-500 hover:bg-zinc-800 rounded-full transition-colors"><Pencil size={18} /></button>
-                    <button onClick={() => excluirGasto(gasto.id)} className="p-2 text-red-400 hover:bg-zinc-800 rounded-full transition-colors"><Trash2 size={18} /></button>
+              {listaGastos.length > 0 ? (
+                listaGastos.map((gasto) => (
+                  <tr key={gasto.id} className="hover:bg-zinc-800/50 transition-colors group">
+                    <td className="p-4 text-sm text-zinc-300">
+                      {gasto.data.split('-').reverse().slice(0, 2).join('/')}
+                    </td>
+                    <td className="p-4 text-sm font-medium text-white">{gasto.descricao}</td>
+                    <td className="p-4 text-sm text-zinc-300"><span className="px-2 py-1 bg-zinc-800 rounded text-xs border border-zinc-700">{gasto.categoria}</span></td>
+                    <td className="p-4 text-sm font-bold text-emerald-400">{gasto.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                    <td className="p-4 text-sm flex justify-center gap-2">
+                      <button onClick={() => prepararEdicao(gasto)} className="p-2 text-emerald-500 hover:bg-zinc-800 rounded-full transition-colors"><Pencil size={18} /></button>
+                      <button onClick={() => excluirGasto(gasto.id)} className="p-2 text-red-400 hover:bg-zinc-800 rounded-full transition-colors"><Trash2 size={18} /></button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="p-8 text-center text-zinc-500">
+                    Nenhum gasto encontrado com esses filtros.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* MODAL */}
+      {/* MODAL (Mantive igual) */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 backdrop-blur-sm">
           <div className="bg-zinc-900 p-8 rounded-2xl shadow-2xl w-full max-w-md relative animate-bounce-in border border-zinc-800">
