@@ -14,7 +14,7 @@ import { Pie, Bar } from 'react-chartjs-2';
 import { 
   Wallet, AlertCircle, Filter, Search, Plus, X, Pencil, Trash2, 
   Banknote, ArrowRightLeft, SlidersHorizontal, Calendar 
-} from 'lucide-react'; // Adicionei SlidersHorizontal e Calendar
+} from 'lucide-react';
 
 ChartJS.defaults.color = '#a1a1aa'; 
 ChartJS.defaults.borderColor = '#3f3f46';
@@ -30,7 +30,8 @@ function App() {
   const [listaGastos, setListaGastos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
-  const [graficoTipoBarra, setGraficoTipoBarra] = useState(false);
+  // MUDANÇA 1: Começa como true para iniciar com gráfico de barras
+  const [graficoTipoBarra, setGraficoTipoBarra] = useState(true);
   const [idEdicao, setIdEdicao] = useState(null); 
 
   // --- CONTROLE DE UI ---
@@ -51,7 +52,7 @@ function App() {
   const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
   const [filtroCategoria, setFiltroCategoria] = useState("");
 
-  // --- ESTADOS DOS FILTROS AVANÇADOS (NOVO) ---
+  // --- ESTADOS DOS FILTROS AVANÇADOS ---
   const [filtroDescricao, setFiltroDescricao] = useState("");
   const [filtroMetodo, setFiltroMetodo] = useState("");
   const [filtroValorMin, setFiltroValorMin] = useState("");
@@ -75,17 +76,12 @@ function App() {
   async function buscarDados() {
     setCarregando(true);
     try {
-      // Montamos o objeto com TODOS os filtros possíveis que seu Python aceita
-      // Se o usuário preencher datas personalizadas, enviamos mês/ano como null para o Python usar as datas exatas
       const usarDatasPersonalizadas = filtroDataInicio || filtroDataFim;
 
       const paramsCompletos = {
-        // Básicos
         mes: usarDatasPersonalizadas ? null : filtroMes,
         ano: usarDatasPersonalizadas ? null : filtroAno,
         categoria: filtroCategoria || null,
-        
-        // Avançados
         descricao: filtroDescricao || null,
         metodo_pagamento: filtroMetodo || null,
         valor_inicio: filtroValorMin || null,
@@ -94,7 +90,6 @@ function App() {
         data_fim: filtroDataFim || null
       };
 
-      // Buscamos Dashboard e Tabela com os mesmos filtros para ficarem sincronizados
       const [respDash, respGastos] = await Promise.all([
         axios.get(`${API_URL}/dashboard`, { params: paramsCompletos }),
         axios.get(`${API_URL}/gastos`, { params: paramsCompletos })
@@ -111,7 +106,6 @@ function App() {
     }
   }
 
-  // Função para limpar apenas os filtros avançados
   function limparFiltrosAvancados() {
     setFiltroDescricao("");
     setFiltroMetodo("");
@@ -119,7 +113,7 @@ function App() {
     setFiltroValorMax("");
     setFiltroDataInicio("");
     setFiltroDataFim("");
-    buscarDados(); // Recarrega usando só o mês/ano padrão
+    buscarDados();
   }
 
   async function enviarGasto(e) {
@@ -313,9 +307,10 @@ function App() {
         </div>
 
         {/* Filtros */}
-        <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 h-fit transition-all duration-300">
+        {/* Removi o transition-all duration-300 do container pai para evitar animação na altura total */}
+        <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 h-fit">
           
-          {/* Cabeçalho dos Filtros + Botão de Avançados */}
+          {/* Cabeçalho dos Filtros */}
           <div className="flex items-center justify-between mb-6 border-b border-zinc-800 pb-4">
             <div className="flex items-center gap-2">
               <Filter className="text-emerald-500" size={20}/>
@@ -331,8 +326,8 @@ function App() {
           </div>
 
           <div className="space-y-4">
-            {/* Filtros Básicos (Sempre visíveis, exceto se datas personalizadas estiverem ativas, eu desabilito eles visualmente) */}
-            <div className={filtroDataInicio || filtroDataFim ? 'opacity-50 pointer-events-none' : ''}>
+            {/* Filtros Básicos */}
+            <div className={filtroDataInicio || filtroDataFim ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
               <div>
                 <label className={labelStyle}>Mês</label>
                 <select value={filtroMes} onChange={(e) => setFiltroMes(Number(e.target.value))} className={inputStyle}>
@@ -353,9 +348,10 @@ function App() {
               </select>
             </div>
 
-            {/* ÁREA DE FILTROS AVANÇADOS (Expansível) */}
+            {/* ÁREA DE FILTROS AVANÇADOS (Com scroll interno para não empurrar a tela) */}
             {mostrarFiltrosAvancados && (
-              <div className="pt-4 mt-4 border-t border-zinc-800 space-y-4 animate-in fade-in slide-in-from-top-4">
+              // MUDANÇA 2: Adicionadas classes de altura máxima e scroll
+              <div className="pt-4 mt-4 border-t border-zinc-800 space-y-4 animate-in fade-in slide-in-from-top-4 max-h-[350px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
                 <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider">Busca Avançada</p>
                 
                 <div>
@@ -416,7 +412,7 @@ function App() {
         </div>
       </div>
 
-      {/* TABELA */}
+      {/* TABELA (Mantida igual) */}
       <div className="bg-zinc-900 rounded-xl shadow-lg border border-zinc-800 overflow-hidden">
         <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
           <h2 className="text-lg font-bold text-white">Detalhamento</h2>
@@ -463,7 +459,7 @@ function App() {
         </div>
       </div>
 
-      {/* MODAL (Mantive igual) */}
+      {/* MODAL (Mantido igual) */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 backdrop-blur-sm">
           <div className="bg-zinc-900 p-8 rounded-2xl shadow-2xl w-full max-w-md relative animate-bounce-in border border-zinc-800">
