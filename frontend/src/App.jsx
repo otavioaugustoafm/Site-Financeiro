@@ -9,9 +9,9 @@ import {
   CategoryScale, 
   LinearScale, 
   BarElement,
-  PointElement,    // Necessário para gráfico de linha
-  LineElement,     // Necessário para gráfico de linha
-  Title            // Necessário para títulos
+  PointElement,
+  LineElement,
+  Title
 } from 'chart.js';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
 import { 
@@ -20,7 +20,6 @@ import {
   PieChart, BarChart3, TrendingUp 
 } from 'lucide-react';
 
-// Registrando todos os componentes necessários do Chart.js
 ChartJS.defaults.color = '#a1a1aa'; 
 ChartJS.defaults.borderColor = '#27272a';
 ChartJS.register(
@@ -33,22 +32,16 @@ const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 // ------------------------------
 
 function App() {
-  // --- ESTADOS GERAIS ---
   const [dashboardData, setDashboardData] = useState(null);
   const [listaGastos, setListaGastos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
   
-  // Estado para controlar qual gráfico está visível: 'doughnut', 'bar' ou 'line'
-  // Começamos com 'bar' como você pediu
   const [tipoGrafico, setTipoGrafico] = useState('bar'); 
-  
   const [idEdicao, setIdEdicao] = useState(null); 
 
-  // --- CONTROLE DE UI ---
   const [mostrarFiltrosAvancados, setMostrarFiltrosAvancados] = useState(false);
 
-  // --- ESTADOS DO FORMULÁRIO ---
   const [novoGasto, setNovoGasto] = useState({
     valor: '',
     descricao: '',
@@ -58,7 +51,6 @@ function App() {
     parcelas: 1
   });
 
-  // --- ESTADOS DOS FILTROS ---
   const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1); 
   const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
   const [filtroCategoria, setFiltroCategoria] = useState("");
@@ -81,7 +73,6 @@ function App() {
     "Gastos Extras", "Transporte", "Compras", "Outros"
   ];
 
-  // --- FUNÇÕES DE BUSCA ---
   async function buscarDados() {
     setCarregando(true);
     try {
@@ -114,9 +105,6 @@ function App() {
     }
   }
 
-  // --- PROCESSAMENTO DE DADOS PARA GRÁFICOS (useMemo otimiza a performance) ---
-  
-  // 1. Dados para Barra e Rosca (Categorias)
   const dadosCategorias = useMemo(() => {
     const categorias = Object.keys(dashboardData?.total_categoria || {});
     const valores = Object.values(dashboardData?.total_categoria || {});
@@ -126,7 +114,7 @@ function App() {
         label: 'Gastos R$',
         data: valores,
         backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'],
-        borderColor: '#18181b', // Borda da cor do fundo para separar fatias
+        borderColor: '#18181b',
         borderWidth: 2,
         borderRadius: 4,
         hoverOffset: 10
@@ -134,16 +122,13 @@ function App() {
     };
   }, [dashboardData]);
 
-  // 2. Dados para Linha (Evolução Diária)
   const dadosLinha = useMemo(() => {
-    // Agrupar gastos por dia
     const gastosPorDia = listaGastos.reduce((acc, gasto) => {
-      const dia = gasto.data.split('-')[2]; // Pega o dia "01", "15", etc.
+      const dia = gasto.data.split('-')[2]; 
       acc[dia] = (acc[dia] || 0) + gasto.valor;
       return acc;
     }, {});
 
-    // Ordenar dias (1, 2, 3...)
     const diasOrdenados = Object.keys(gastosPorDia).sort();
     const valoresPorDia = diasOrdenados.map(dia => gastosPorDia[dia]);
 
@@ -152,28 +137,27 @@ function App() {
       datasets: [{
         label: 'Gasto Diário',
         data: valoresPorDia,
-        borderColor: '#10b981', // Verde Emerald
+        borderColor: '#10b981',
         backgroundColor: 'rgba(16, 185, 129, 0.2)',
-        tension: 0.4, // Deixa a linha curva (suave)
+        tension: 0.4,
         pointBackgroundColor: '#10b981',
         fill: true
       }]
     };
   }, [listaGastos]);
 
-  // --- OPÇÕES DOS GRÁFICOS ---
   const opcoesRosca = {
     responsive: true,
     maintainAspectRatio: false,
-    cutout: '70%', // Deixa a rosca mais fina e elegante
+    cutout: '70%', 
     plugins: {
       legend: {
-        position: 'right', // Legenda na lateral
+        position: 'right', 
         labels: {
           color: '#fff',
           font: { size: 12 },
           padding: 20,
-          usePointStyle: true, // Bolinhas em vez de quadrados
+          usePointStyle: true,
         }
       }
     }
@@ -199,7 +183,6 @@ function App() {
     plugins: { legend: { display: false } }
   };
 
-  // --- FUNÇÕES AUXILIARES ---
   function limparFiltrosAvancados() {
     setFiltroDescricao(""); setFiltroMetodo(""); setFiltroValorMin("");
     setFiltroValorMax(""); setFiltroDataInicio(""); setFiltroDataFim("");
@@ -298,11 +281,11 @@ function App() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         
         {/* ÁREA DO GRÁFICO */}
-        <div className="lg:col-span-2 bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex flex-col">
+        {/* Removi o flex-1 e fixei a altura do gráfico em h-[350px] para não esticar demais */}
+        <div className="lg:col-span-2 bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 h-fit">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-white">Análise Visual</h2>
             
-            {/* Botões de Troca de Gráfico */}
             <div className="flex bg-zinc-800 p-1 rounded-lg gap-1">
               <button onClick={() => setTipoGrafico('bar')} className={`p-2 rounded transition-colors ${tipoGrafico === 'bar' ? 'bg-zinc-700 text-emerald-400' : 'text-zinc-400 hover:text-white'}`} title="Comparação (Barras)">
                 <BarChart3 size={18} />
@@ -316,7 +299,7 @@ function App() {
             </div>
           </div>
 
-          <div className="flex-1 min-h-[300px] w-full relative">
+          <div className="h-[350px] w-full relative">
              {dashboardData ? (
                 <>
                   {tipoGrafico === 'doughnut' && <Doughnut data={dadosCategorias} options={opcoesRosca} />}
@@ -348,8 +331,9 @@ function App() {
             </div>
             <div><label className={labelStyle}>Categoria</label><select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className={inputStyle}><option value="" className="bg-zinc-800">Todas</option>{listaCategorias.map(cat => <option key={cat} value={cat} className="bg-zinc-800">{cat}</option>)}</select></div>
 
+            {/* Removi o max-h e o overflow-scroll. Agora ele expande livremente. */}
             {mostrarFiltrosAvancados && (
-              <div className="pt-4 mt-4 border-t border-zinc-800 space-y-4 animate-in fade-in slide-in-from-top-4 max-h-[350px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+              <div className="pt-4 mt-4 border-t border-zinc-800 space-y-4 animate-in fade-in slide-in-from-top-4">
                 <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider">Avançado</p>
                 <input type="text" value={filtroDescricao} onChange={(e) => setFiltroDescricao(e.target.value)} placeholder="Descrição contém..." className={inputStyle} />
                 <div className="grid grid-cols-2 gap-2">
