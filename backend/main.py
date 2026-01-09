@@ -9,8 +9,10 @@ models.Base.metadata.create_all(bind=database.engine)
 app = FastAPI()
 
 origins = [
-    "http://localhost:5173", 
+    "http://localhost:5173",
     "https://site-financeiro-three.vercel.app",
+    "https://site-financeiro-git-main-otavio-monteiros-projects.vercel.app",
+    "https://site-financeiro-qlimgq7tq-otavio-monteiros-projects.vercel.app",
     "*"
 ]
 
