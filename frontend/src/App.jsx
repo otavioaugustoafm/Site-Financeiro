@@ -276,7 +276,7 @@ function App() {
       {/* CABEÇALHO */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Meu Controle Financeiro</h1>
+          <h1 className="text-3xl font-bold text-emerald-400 tracking-tight">Meu Controle Financeiro</h1>
           <div className="text-sm text-zinc-400 mt-1">
             Visualizando: <strong className="text-emerald-400">{(filtroDataInicio || filtroDataFim) ? 'Período Personalizado' : `${filtroMes}/${filtroAno}`}</strong>
           </div>
