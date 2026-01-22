@@ -17,7 +17,7 @@ import { Doughnut, Bar, Line } from 'react-chartjs-2';
 import { 
   Wallet, AlertCircle, Filter, Search, Plus, X, Pencil, Trash2, 
   Banknote, SlidersHorizontal, Calendar, 
-  PieChart, BarChart3, TrendingUp, CreditCard, Coins // Novos ícones importados
+  PieChart, BarChart3, TrendingUp, CreditCard, Coins 
 } from 'lucide-react';
 
 ChartJS.defaults.color = '#a1a1aa'; 
@@ -96,8 +96,6 @@ function App() {
 
       setDashboardData(respDash.data);
 
-      // ORDENAÇÃO POR DATA (Antigo -> Novo)
-      // Se quiser o contrário (Mais recente no topo), inverta para: (b.data > a.data ? 1 : -1)
       const gastosOrdenados = respGastos.data.sort((a, b) => {
         if (a.data < b.data) return -1;
         if (a.data > b.data) return 1;
@@ -250,12 +248,23 @@ function App() {
 
   useEffect(() => { buscarDados(); }, []);
 
-  // Cálculos para os Cards Novos
+  // --- CÁLCULOS DOS CARDS (Lógica Ajustada) ---
   const totalGeral = dashboardData?.total_gastos || 0;
   const totalFatura = dashboardData?.total_fatura || 0;
   const totalExtras = dashboardData?.total_categoria['Gastos Extras'] || 0;
-  // Gastos Comuns = Tudo - Extras
-  const totalComuns = totalGeral - totalExtras;
+
+  // NOVO CÁLCULO DE GASTOS COMUNS
+  // Regra: Somar tudo que é 'Crédito' E que NÃO é 'Gastos Extras'
+  const totalComuns = useMemo(() => {
+    return listaGastos.reduce((acc, gasto) => {
+      // Se for Débito, pula.
+      if (gasto.metodo_pagamento === 'Débito') return acc;
+      // Se for Gasto Extra, pula.
+      if (gasto.categoria === 'Gastos Extras') return acc;
+      // Se sobrou, é Crédito Comum. Soma!
+      return acc + gasto.valor;
+    }, 0);
+  }, [listaGastos]);
 
   const inputStyle = "w-full p-3 bg-zinc-800 border border-zinc-700 rounded-lg outline-none focus:border-emerald-500 text-white transition-colors placeholder-zinc-500";
   const labelStyle = "block text-sm font-medium text-zinc-400 mb-1";
@@ -277,10 +286,10 @@ function App() {
         </button>
       </div>
 
-      {/* CARDS REORGANIZADOS (4 Colunas) */}
+      {/* CARDS REORGANIZADOS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
         
-        {/* Card 1: Total Geral */}
+        {/* Card 1: Total Geral (Crédito + Débito) */}
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <Banknote size={32} /> </div>
           <div>
@@ -291,7 +300,7 @@ function App() {
           </div>
         </div>
 
-        {/* Card 2: Fatura */}
+        {/* Card 2: Fatura (Só Crédito) */}
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <CreditCard size={32} /> </div>
           <div>
@@ -302,7 +311,7 @@ function App() {
           </div>
         </div>
 
-        {/* Card 3: Gastos Comuns (Sem Extras) */}
+        {/* Card 3: Gastos Comuns (Só Crédito e Sem Extras) */}
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <Coins size={32} /> </div>
           <div>
@@ -313,7 +322,7 @@ function App() {
           </div>
         </div>
 
-        {/* Card 4: Gastos Extras */}
+        {/* Card 4: Gastos Extras (Total da Categoria) */}
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <AlertCircle size={32} /> </div>
           <div>
@@ -326,7 +335,7 @@ function App() {
 
       </div>
 
-      {/* ÁREA PRINCIPAL (Gráfico e Filtros) */}
+      {/* ÁREA PRINCIPAL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         
         {/* ÁREA DO GRÁFICO */}
