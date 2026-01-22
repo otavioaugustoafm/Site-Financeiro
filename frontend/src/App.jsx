@@ -17,7 +17,7 @@ import { Doughnut, Bar, Line } from 'react-chartjs-2';
 import { 
   Wallet, AlertCircle, Filter, Search, Plus, X, Pencil, Trash2, 
   Banknote, SlidersHorizontal, Calendar, 
-  PieChart, BarChart3, TrendingUp 
+  PieChart, BarChart3, TrendingUp, CreditCard, Coins // Novos ícones importados
 } from 'lucide-react';
 
 ChartJS.defaults.color = '#a1a1aa'; 
@@ -95,7 +95,16 @@ function App() {
       ]);
 
       setDashboardData(respDash.data);
-      setListaGastos(respGastos.data);
+
+      // ORDENAÇÃO POR DATA (Antigo -> Novo)
+      // Se quiser o contrário (Mais recente no topo), inverta para: (b.data > a.data ? 1 : -1)
+      const gastosOrdenados = respGastos.data.sort((a, b) => {
+        if (a.data < b.data) return -1;
+        if (a.data > b.data) return 1;
+        return 0;
+      });
+
+      setListaGastos(gastosOrdenados);
       
     } catch (erro) {
       console.error("Erro ao buscar dados:", erro);
@@ -241,6 +250,13 @@ function App() {
 
   useEffect(() => { buscarDados(); }, []);
 
+  // Cálculos para os Cards Novos
+  const totalGeral = dashboardData?.total_gastos || 0;
+  const totalFatura = dashboardData?.total_fatura || 0;
+  const totalExtras = dashboardData?.total_categoria['Gastos Extras'] || 0;
+  // Gastos Comuns = Tudo - Extras
+  const totalComuns = totalGeral - totalExtras;
+
   const inputStyle = "w-full p-3 bg-zinc-800 border border-zinc-700 rounded-lg outline-none focus:border-emerald-500 text-white transition-colors placeholder-zinc-500";
   const labelStyle = "block text-sm font-medium text-zinc-400 mb-1";
 
@@ -261,27 +277,59 @@ function App() {
         </button>
       </div>
 
-      {/* CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
-          <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <Wallet size={32} /> </div>
-          <div><p className="text-zinc-400 text-sm font-medium">Fatura</p><p className="text-2xl font-bold text-emerald-400">{dashboardData?.total_fatura?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}</p></div>
-        </div>
+      {/* CARDS REORGANIZADOS (4 Colunas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+        
+        {/* Card 1: Total Geral */}
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <Banknote size={32} /> </div>
-          <div><p className="text-zinc-400 text-sm font-medium">Total</p><p className="text-2xl font-bold text-emerald-400">{dashboardData?.total_gastos?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}</p></div>
+          <div>
+            <p className="text-zinc-400 text-sm font-medium">Total do Mês</p>
+            <p className="text-2xl font-bold text-emerald-400">
+              {totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </p>
+          </div>
         </div>
+
+        {/* Card 2: Fatura */}
+        <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
+          <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <CreditCard size={32} /> </div>
+          <div>
+            <p className="text-zinc-400 text-sm font-medium">Fatura (Cartão)</p>
+            <p className="text-2xl font-bold text-emerald-400">
+              {totalFatura.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </p>
+          </div>
+        </div>
+
+        {/* Card 3: Gastos Comuns (Sem Extras) */}
+        <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
+          <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <Coins size={32} /> </div>
+          <div>
+            <p className="text-zinc-400 text-sm font-medium">Gastos Comuns</p>
+            <p className="text-2xl font-bold text-emerald-400">
+              {totalComuns.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </p>
+          </div>
+        </div>
+
+        {/* Card 4: Gastos Extras */}
         <div className="bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 flex items-center">
           <div className="p-3 bg-emerald-950/50 rounded-full mr-4 text-emerald-400"> <AlertCircle size={32} /> </div>
-          <div><p className="text-zinc-400 text-sm font-medium">Extras</p><p className="text-2xl font-bold text-emerald-400">{(dashboardData?.total_categoria['Gastos Extras'] || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
+          <div>
+            <p className="text-zinc-400 text-sm font-medium">Gastos Extras</p>
+            <p className="text-2xl font-bold text-emerald-400">
+               {totalExtras.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </p>
+          </div>
         </div>
+
       </div>
 
-      {/* ÁREA PRINCIPAL */}
+      {/* ÁREA PRINCIPAL (Gráfico e Filtros) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         
         {/* ÁREA DO GRÁFICO */}
-        {/* Removi o flex-1 e fixei a altura do gráfico em h-[350px] para não esticar demais */}
         <div className="lg:col-span-2 bg-zinc-900 p-6 rounded-xl shadow-lg border border-zinc-800 h-fit">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-white">Análise Visual</h2>
@@ -331,7 +379,6 @@ function App() {
             </div>
             <div><label className={labelStyle}>Categoria</label><select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className={inputStyle}><option value="" className="bg-zinc-800">Todas</option>{listaCategorias.map(cat => <option key={cat} value={cat} className="bg-zinc-800">{cat}</option>)}</select></div>
 
-            {/* Removi o max-h e o overflow-scroll. Agora ele expande livremente. */}
             {mostrarFiltrosAvancados && (
               <div className="pt-4 mt-4 border-t border-zinc-800 space-y-4 animate-in fade-in slide-in-from-top-4">
                 <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider">Avançado</p>
